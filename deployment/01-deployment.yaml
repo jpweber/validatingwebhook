@@ -15,7 +15,7 @@ spec:
         app: webhook
     spec:
       containers:
-      - image: stevesloka/webhook
+      - image: jpweber/hackathon:0.0.1
         name: webhook
         ports:
         - containerPort: 443

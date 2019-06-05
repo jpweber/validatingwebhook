@@ -1,17 +1,18 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	"io/ioutil"
 
 	"encoding/json"
 
-	ingressroutev1 "github.com/heptio/contour/apis/contour/v1beta1"
 	"k8s.io/api/admission/v1beta1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -21,6 +22,22 @@ var (
 	runtimeScheme = runtime.NewScheme()
 	codecs        = serializer.NewCodecFactory(runtimeScheme)
 )
+
+func slack() []byte {
+	// DEBUG
+	log.Println("slack method")
+	payload := Payload{
+		Text:      "timmy is using latest again",
+		Username:  "Milton",
+		Channel:   "#hackaton",
+		IconEmoji: ":ghost:",
+	}
+	jsonBody, err := json.Marshal(payload)
+	if err != nil {
+		fmt.Printf("error marshalling json for slack")
+	}
+	return jsonBody
+}
 
 func handler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("got request...")
@@ -62,28 +79,34 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		pod := v1.Pod{}
 		json.Unmarshal(ar.Request.Object.Raw, &pod)
 		for _, container := range pod.Spec.Containers {
-			if container.Name == "steve" {
+
+			// shame logic here
+			// image tag blank or latest
+			// linevess or readiness probe empty
+			// limits andor requests empty
+			tag := strings.Split(container.Image, ":")[1]
+			if tag == "latest" || tag == "" {
 				fmt.Println("BLOCK container from running...")
-				admitResponse.Response.Allowed = false
 				admitResponse.Response.Result = &metav1.Status{
-					Message: "Ah ah ahhhh, you can't do this! [STEVE]",
+					Message: "No, no, no. you can't use latest",
+				}
+				// slack call
+				body := slack()
+
+				slackURL := "https://hooks.slack.com/services/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"
+
+				_, err := http.Post(slackURL, "json", bytes.NewBuffer(body))
+				if err != nil {
+
+					fmt.Print("Error contacting slack")
 				}
 				break
 			} else {
 				fmt.Println("Container is a-ok!")
+				// send slack notification with gif
 			}
 		}
-	} else if ar.Request.Kind.Kind == "IngressRoute" {
-		ir := ingressroutev1.IngressRoute{}
-		json.Unmarshal(ar.Request.Object.Raw, &ir)
 
-		if ir.GetNamespace() != "root" && ir.GetNamespace() != "" {
-			fmt.Println("BLOCK ingressroute, can't run outside root namespace...")
-			admitResponse.Response.Allowed = false
-			admitResponse.Response.Result = &metav1.Status{
-				Message: "Attempt to deploy to non-root namespace",
-			}
-		}
 	}
 
 	// Send response
