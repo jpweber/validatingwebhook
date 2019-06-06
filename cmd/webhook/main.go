@@ -23,14 +23,15 @@ var (
 	codecs        = serializer.NewCodecFactory(runtimeScheme)
 )
 
-func slack() []byte {
+func slack(text string) []byte {
 	// DEBUG
 	log.Println("slack method")
 	payload := Payload{
-		Text:      "timmy is using latest again",
-		Username:  "Milton",
-		Channel:   "#hackaton",
-		IconEmoji: ":ghost:",
+		Text:        text,
+		Username:    "Milton",
+		Channel:     "#hackaton",
+		IconEmoji:   ":ghost:",
+		UnfurlLinks: true,
 	}
 	jsonBody, err := json.Marshal(payload)
 	if err != nil {
@@ -91,7 +92,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
 					Message: "No, no, no. you can't use latest",
 				}
 				// slack call
-				body := slack()
+				// no no no gif
+				gif := "https://media.giphy.com/media/11ai6rk49qkHPq/giphy.gif"
+				body := slack(gif + " you can't use lastest")
 
 				slackURL := "https://hooks.slack.com/services/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"
 
@@ -104,6 +107,14 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			} else {
 				fmt.Println("Container is a-ok!")
 				// send slack notification with gif
+				gif := "https://media1.giphy.com/media/4KF85OSbyjVOfyjksJ/giphy-downsized.gif?cid=6104955e5cf59fb9656d70704d980f02&rid=giphy-downsized.gif"
+				body := slack(gif + " All checks passed.")
+				slackURL := "https://hooks.slack.com/services/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"
+				_, err := http.Post(slackURL, "json", bytes.NewBuffer(body))
+				if err != nil {
+
+					fmt.Print("Error contacting slack")
+				}
 			}
 		}
 
